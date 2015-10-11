@@ -1,17 +1,24 @@
-package cse.squeryl
+package cse.squeryl.crud
 
-import java.sql.DriverManager
-
+import java.sql.{Connection, DriverManager}
 import org.scalatest.path
-import org.squeryl.{Schema, SessionFactory, Session}
-import org.squeryl.adapters.H2Adapter
 import org.squeryl.PrimitiveTypeMode._
+import org.squeryl.adapters.H2Adapter
+import org.squeryl.{Schema, Session, SessionFactory}
 
 /**
  * Created by dnwiebe on 10/7/15.
  */
+
+case class Item (id: Int, name: String, price: Int)
+
+object CrudSchema extends Schema {
+  val items = table[Item]
+}
+
 class CrudTest extends path.FunSpec {
-  describe ("A database with one table") {
+
+  private def makeTables: Connection = {
     Class.forName ("org.h2.Driver")
     val conn = DriverManager.getConnection ("jdbc:h2:mem:test")
     val stmt = conn.createStatement ()
@@ -25,6 +32,11 @@ class CrudTest extends path.FunSpec {
       """.stripMargin
     )
     stmt.close ()
+    conn
+  }
+
+  describe ("A database with one table") {
+    val conn = makeTables
 
     describe ("with a SessionFactory pointed at it") {
       SessionFactory.concreteFactory = Some (
@@ -33,12 +45,12 @@ class CrudTest extends path.FunSpec {
 
       describe ("and a row added to it") {
         transaction {
-          History.items.insert (new Item (432, "Snickers bar", 79))
+          CrudSchema.items.insert (new Item (432, "Snickers bar", 79))
         }
 
         describe ("when asked for that row") {
           transaction {
-            val result = from (History.items)(r => where (r.id === 432).select (r))
+            val result = from (CrudSchema.items) {r => where (r.id === 432).select (r)}
 
             it ("returns the correct value") {
               assert (result.head === new Item (432, "Snickers bar", 79))
@@ -48,32 +60,32 @@ class CrudTest extends path.FunSpec {
 
         describe ("and the row changed") {
           transaction {
-            update (History.items)(r => where (r.id === 432).set (r.price := 99))
+            update (CrudSchema.items) {r => where (r.id === 432).set (r.price := 99)}
           }
 
           describe ("when asked for that row") {
-            transaction {
-              val result = from (History.items)(r => where (r.id === 432).select (r))
+            val result = transaction {
+              from (CrudSchema.items) {r => where (r.id === 432).select (r)}.head
+            }
 
-              it ("returns the changed value") {
-                assert (result.head === new Item (432, "Snickers bar", 99))
-              }
+            it ("returns the changed value") {
+              assert (result === new Item (432, "Snickers bar", 99))
             }
           }
         }
 
         describe ("and the row deleted") {
           transaction {
-            History.items.deleteWhere (r => r.id === 432)
+            CrudSchema.items.deleteWhere {r => r.id === 432}
           }
 
           describe ("when asked for that row") {
-            transaction {
-              val result = from (History.items)(r => where (r.id === 432).select (r))
+            val result = transaction {
+              from (CrudSchema.items) {r => where (r.id === 432).select (r)}.isEmpty
+            }
 
-              it ("returns no value") {
-                assert (result.isEmpty)
-              }
+            it ("returns no value") {
+              assert (result)
             }
           }
         }
@@ -82,12 +94,4 @@ class CrudTest extends path.FunSpec {
 
     conn.close ()
   }
-}
-
-case class Item (id: Int, name: String, price: Int) {
-  def this () = this (0, "", 0)
-}
-
-object History extends Schema {
-  val items = table[Item]
 }
