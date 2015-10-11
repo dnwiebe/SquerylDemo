@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/squeryl.iml" filepath="$PROJECT_DIR$/.idea/modules/squeryl.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/squeryl-build.iml" filepath="$PROJECT_DIR$/.idea/modules/squeryl-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/squeryldemo.iml" filepath="$PROJECT_DIR$/.idea/modules/squeryldemo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/squeryldemo-build.iml" filepath="$PROJECT_DIR$/.idea/modules/squeryldemo-build.iml" />
     </modules>
   </component>
 </project>

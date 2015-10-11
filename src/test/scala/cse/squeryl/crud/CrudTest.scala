@@ -33,13 +33,14 @@ class CrudTest extends path.FunSpec {
   }
 
   describe ("A database with one table") {
+    val dbUrl = "jdbc:h2:mem:crud"
     Class.forName ("org.h2.Driver")
-    val backgroundConn = DriverManager.getConnection ("jdbc:h2:mem:test")
+    val backgroundConn = DriverManager.getConnection (dbUrl)
     makeTables (backgroundConn)
 
     describe ("with a SessionFactory pointed at it") {
       SessionFactory.concreteFactory = Some (
-        () => Session.create (DriverManager.getConnection ("jdbc:h2:mem:test"), new H2Adapter ())
+        () => Session.create (DriverManager.getConnection (dbUrl), new H2Adapter ())
       )
 
       describe ("and a row added to it") {
