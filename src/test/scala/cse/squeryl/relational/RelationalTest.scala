@@ -7,7 +7,7 @@ import java.util.Date
 import org.scalatest.path
 import org.squeryl.PrimitiveTypeMode._
 import org.squeryl.adapters.H2Adapter
-import org.squeryl.{Query, Schema, Session, SessionFactory}
+import org.squeryl.{Schema, Session, SessionFactory}
 
 /**
  * Created by dnwiebe on 10/7/15.
@@ -34,9 +34,7 @@ class RelationalTest extends path.FunSpec {
   
   val sdf = new SimpleDateFormat ("MM-dd-yyyy")
 
-  private def makeTables: Connection = {
-    Class.forName ("org.h2.Driver")
-    val conn = DriverManager.getConnection ("jdbc:h2:mem:test")
+  private def makeTables (conn: Connection) = {
     executeSql (conn,
       """
         | create table item (
@@ -54,7 +52,7 @@ class RelationalTest extends path.FunSpec {
         | )
       """.stripMargin
     )
-    executeSql (conn,
+    executeSql (conn, // notice nullable column
       """
         | create table purchase (
         |   id integer primary key,
@@ -88,11 +86,13 @@ class RelationalTest extends path.FunSpec {
   }
 
   describe ("A database with several tables") {
-    val conn = makeTables
+    Class.forName ("org.h2.Driver")
+    val backgroundConn = DriverManager.getConnection ("jdbc:h2:mem:test")
+    makeTables (backgroundConn)
 
     describe ("with a SessionFactory pointed at it") {
       SessionFactory.concreteFactory = Some (
-        () => Session.create (java.sql.DriverManager.getConnection ("jdbc:h2:mem:test"), new H2Adapter ())
+        () => Session.create (DriverManager.getConnection ("jdbc:h2:mem:test"), new H2Adapter ())
       )
 
       describe ("filled with some sample data") {
@@ -130,10 +130,10 @@ class RelationalTest extends path.FunSpec {
           val result = transaction {
             from (purchases, customers) {(p, c) =>
               where (c.id === p.customerId)
-                .groupBy (c.name)
+                .groupBy (c.name) // Notice not c.id
                 .compute (count (p.id))
                 .orderBy (c.name.desc)
-            }.map {f => (f.key, f.measures)}
+            }.map {f => (f.key, f.measures)} // Notice property names
           }
 
           it ("returns 3 for Mindy and 1 for Billy") {
@@ -165,7 +165,7 @@ class RelationalTest extends path.FunSpec {
             from (lineItems, items) { (l, i) =>
               where (i.id === l.itemId)
                 .groupBy (i.name)
-                .compute (sum (i.price times l.count))
+                .compute (sum (i.price times l.count)) // Notice "times," not "*"
                 .orderBy (i.id.asc)
             }.map (f => (f.key, f.measures))
           }
@@ -221,10 +221,10 @@ class RelationalTest extends path.FunSpec {
       }
     }
 
-    conn.close ()
+    backgroundConn.close ()
   }
 
-  private def mapOfLists[K, A, B] (seq: Query[(K, A, B)]): Map[K, List[(A, B)]] = {
+  private def mapOfLists[K, A, B] (seq: Iterable[(K, A, B)]): Map[K, List[(A, B)]] = {
     seq.foldLeft (Map[K, List[(A, B)]]()) {(soFar, elem) =>
       val (k, a, b) = elem
       soFar.contains (k) match {

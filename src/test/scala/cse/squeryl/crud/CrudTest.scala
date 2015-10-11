@@ -18,9 +18,7 @@ object CrudSchema extends Schema {
 
 class CrudTest extends path.FunSpec {
 
-  private def makeTables: Connection = {
-    Class.forName ("org.h2.Driver")
-    val conn = DriverManager.getConnection ("jdbc:h2:mem:test")
+  private def makeTables (conn: Connection) {
     val stmt = conn.createStatement ()
     stmt.execute (
       """
@@ -32,15 +30,16 @@ class CrudTest extends path.FunSpec {
       """.stripMargin
     )
     stmt.close ()
-    conn
   }
 
   describe ("A database with one table") {
-    val conn = makeTables
+    Class.forName ("org.h2.Driver")
+    val backgroundConn = DriverManager.getConnection ("jdbc:h2:mem:test")
+    makeTables (backgroundConn)
 
     describe ("with a SessionFactory pointed at it") {
       SessionFactory.concreteFactory = Some (
-        () => Session.create (java.sql.DriverManager.getConnection ("jdbc:h2:mem:test"), new H2Adapter ())
+        () => Session.create (DriverManager.getConnection ("jdbc:h2:mem:test"), new H2Adapter ())
       )
 
       describe ("and a row added to it") {
@@ -49,6 +48,7 @@ class CrudTest extends path.FunSpec {
         }
 
         describe ("when asked for that row") {
+          // Notice: assert inside transaction
           transaction {
             val result = from (CrudSchema.items) {r => where (r.id === 432).select (r)}
 
@@ -64,6 +64,7 @@ class CrudTest extends path.FunSpec {
           }
 
           describe ("when asked for that row") {
+            // Notice: .head inside transaction
             val result = transaction {
               from (CrudSchema.items) {r => where (r.id === 432).select (r)}.head
             }
@@ -80,6 +81,7 @@ class CrudTest extends path.FunSpec {
           }
 
           describe ("when asked for that row") {
+            // Notice: .isEmpty inside transaction
             val result = transaction {
               from (CrudSchema.items) {r => where (r.id === 432).select (r)}.isEmpty
             }
@@ -92,6 +94,6 @@ class CrudTest extends path.FunSpec {
       }
     }
 
-    conn.close ()
+    backgroundConn.close ()
   }
 }
